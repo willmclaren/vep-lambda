@@ -17,6 +17,8 @@ docker stop $(docker ps -a -q  --filter ancestor=vep-lambda); docker build -t ve
 
 Create a repo named `vep-lambda` on AWS ECR via the management console.
 
+Then push to it with the following command:
+
 ```
 docker tag vep-lambda:latest ${AWS_ARN}.dkr.ecr.eu-west-2.amazonaws.com/vep-lambda/vep-lambda:latest
 aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin ${AWS_ARN}.dkr.ecr.eu-west-2.amazonaws.com
@@ -34,4 +36,18 @@ aws lambda create-function \
     --role arn:aws:iam::${AWS_ARN}:role/lambda-custom-runtime-perl-role \
     --package-type Image \
     --architectures arm64
+```
+
+### Copy data to S3
+
+Create an S3 bucket named `vep-lambda-data` on AWS management console.
+
+Download and unpack VEP cache locally. This is slow and big, so use HPC on fast network if you can.
+
+Pre-indexed cache files (faster variant data retrieval) can be found in https://ftp.ensembl.org/pub/current_variation/indexed_vep_cache/.
+
+Then copy to S3 with the following:
+
+```
+aws s3 cp --sse aws:kms --recursive /path/to/vep-cache/homo_sapiens s3://vep-lambda-data/vep-cache/homo_sapiens
 ```

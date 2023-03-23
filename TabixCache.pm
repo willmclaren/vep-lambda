@@ -9,10 +9,7 @@ sub new {
   my $class = shift;
   my $self = $class->SUPER::new(@_);
 
-  $DB::single = 1;
-
-  $self->config->{cache_region_size} = 1000;
-  $self->config->{_tabix_cache_file} = "/Users/williammclaren/Documents/Data/vep/homo_sapiens/109_GRCh38/transcripts.gz";
+  $self->config->{cache_region_size} = 30000;
 
   return $self;
 }
@@ -23,9 +20,9 @@ sub run { return {}; }
 
 
 
-################
-## OutputFactory
-################
+#################
+## BaseSerialized
+#################
 
 package Bio::EnsEMBL::VEP::AnnotationSource::Cache::BaseSerialized;
 
@@ -84,12 +81,6 @@ sub _tabix_cache_obj {
   return $self->{_tabix_obj}->{$file} ||= Bio::DB::HTS::Tabix->new(filename => $file);
 }
 
-sub _tabix_cache_file {
-  my ($self) = @_;
-  return "/Users/williammclaren/Documents/Data/vep/homo_sapiens/109_GRCh38/transcripts.gz";
-  return $self->{_tabix_cache_file} ||= $self->config->{_tabix_cache_file};
-}
-
 sub decode_obj {
   my ($self, $obj) = @_;
   return decode_sereal(decode_base64($obj));
@@ -136,8 +127,16 @@ sub _get_source_chr_name {
 1;
 
 
+####################
+## Cache::Transcript
+####################
 
 package Bio::EnsEMBL::VEP::AnnotationSource::Cache::Transcript;
+
+sub _tabix_cache_file {
+  my ($self) = @_;
+  return $self->{dir}."/transcripts.gz";
+}
 
 sub _convert_decoded_hash {
   my ($self, $decoded) = @_;
@@ -154,8 +153,16 @@ sub _convert_decoded_hash {
 1;
 
 
+#################
+## Cache::RegFeat
+#################
 
 package Bio::EnsEMBL::VEP::AnnotationSource::Cache::RegFeat;
+
+sub _tabix_cache_file {
+  my ($self) = @_;
+  return $self->{dir}."/regfeats.gz";
+}
 
 sub _convert_decoded_hash {
   return $_[-1];

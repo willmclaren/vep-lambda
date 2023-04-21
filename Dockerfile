@@ -7,7 +7,8 @@ ENV OPT_SRC $OPT/src
 # ENV HTSLIB_DIR $OPT_SRC/htslib
 ENV HTSLIB_VERSION=1.17
 ENV HTSLIB_CONFIGURE_OPTIONS="--enable-s3 --disable-bz2 --disable-lzma"
-ENV BRANCH release/109
+ENV ENSEMBL_VERSION 109
+ENV BRANCH release/${ENSEMBL_VERSION}
 
 WORKDIR $OPT_SRC
 
@@ -62,9 +63,12 @@ WORKDIR $OPT_SRC
 RUN egrep -v "BigFile" ensembl-vep/cpanfile > ensembl-vep/cpanfile_tmp && mv ensembl-vep/cpanfile_tmp ensembl-vep/cpanfile
 RUN cpanm --installdeps --with-recommends --notest --cpanfile ensembl_cpanfile . && \
     cpanm --installdeps --with-recommends --notest --cpanfile ensembl-vep/cpanfile . && \
-    cpanm LWP::Simple && \
     # Delete bioperl and cpanfiles after the cpanm installs as bioperl will be reinstalled by the INSTALL.pl script
     rm -rf bioperl-live ensembl_cpanfile ensembl-vep/cpanfile
+
+# Install vep-lambda requirements
+COPY cpanfile $OPT_SRC/vep_lambda_cpanfile
+RUN cpanm --installdeps --cpanfile $OPT_SRC/vep_lambda_cpanfile .
 
 # Remove CPAN cache
 RUN rm -rf /root/.cpanm
@@ -88,5 +92,7 @@ RUN ./INSTALL.pl --auto ap --plugins all --pluginsdir $VEP_DIR_PLUGINS --no_upda
     # Remove the ensemb-vep tests and travis
     rm -rf t travisci .travis.yml
 
+COPY TabixCache.pm $VEP_DIR_PLUGINS/
+COPY chr_synonyms.txt $OPT_SRC/
 COPY handler.pl /var/task/
 CMD [ "handler.handle" ]

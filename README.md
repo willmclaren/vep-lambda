@@ -2,6 +2,13 @@
 
 Deploy VEP as an AWS lambda function.
 
+## Pre-requisites
+
+* AWS environment with requisite permissions
+* AWS CLI installed
+* AWS authentication set up (using environment variables or profile)
+* Docker
+
 ## Build and deploy
 
 ### Set this var to your AWS ARN

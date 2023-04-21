@@ -9,7 +9,7 @@ sub new {
   my $class = shift;
   my $self = $class->SUPER::new(@_);
 
-  $self->config->{cache_region_size} = 30000;
+  $self->config->{cache_region_size} = 500000;
 
   return $self;
 }
@@ -62,7 +62,7 @@ sub get_features_by_regions_uncached {
     while(my $line = $iter->next) {
       chomp($line);
       my ($chr, $start, $end, $type, $encoded) = split("\t", $line);
-      push @{$decoded->{$chr}->{$type}}, $self->decode_obj($encoded);
+      push @{$decoded->{$chr}->{$type}}, $self->_decode_obj($encoded);
     }
 
     my $features = $self->deserialized_obj_to_features($self->_convert_decoded_hash($decoded));
@@ -81,7 +81,7 @@ sub _tabix_cache_obj {
   return $self->{_tabix_obj}->{$file} ||= Bio::DB::HTS::Tabix->new(filename => $file);
 }
 
-sub decode_obj {
+sub _decode_obj {
   my ($self, $obj) = @_;
   return decode_sereal(decode_base64($obj));
 }
@@ -135,7 +135,8 @@ package Bio::EnsEMBL::VEP::AnnotationSource::Cache::Transcript;
 
 sub _tabix_cache_file {
   my ($self) = @_;
-  return $self->{dir}."/transcripts.gz";
+  return "s3://vep-lambda-data/transcripts.gz";
+  return $ENV{VEP_REMOTE_CACHE_DIR}."/transcripts.gz";
 }
 
 sub _convert_decoded_hash {
@@ -161,7 +162,7 @@ package Bio::EnsEMBL::VEP::AnnotationSource::Cache::RegFeat;
 
 sub _tabix_cache_file {
   my ($self) = @_;
-  return $self->{dir}."/regfeats.gz";
+  return $ENV{VEP_REMOTE_CACHE_DIR}."/regfeats.gz";
 }
 
 sub _convert_decoded_hash {

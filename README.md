@@ -42,7 +42,8 @@ aws lambda create-function \
     --code ImageUri=${AWS_ARN}.dkr.ecr.eu-west-2.amazonaws.com/vep-lambda:latest \
     --role arn:aws:iam::${AWS_ARN}:role/lambda-custom-runtime-perl-role \
     --package-type Image \
-    --architectures arm64
+    --architectures arm64 \
+    --environment '{"Variables":{"ENSEMBL_VERSION":"107","VEP_SPECIES":"homo_sapiens","VEP_ASSEMBLY":"GRCh38"}}'
 ```
 
 ### Copy data to S3

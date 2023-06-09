@@ -1,6 +1,6 @@
 FROM public.ecr.aws/shogo82148/p5-aws-lambda:base-5.36.al2
 
-RUN yum install -y bzip2 gcc gcc-c++ git libcurl-devel make mariadb-devel openssl-devel tar unzip wget which zlib-devel
+RUN yum install -y awscli bzip2 gcc gcc-c++ git libcurl-devel make mariadb-devel openssl-devel tar unzip wget which zlib-devel
 
 ENV OPT /opt/vep
 ENV OPT_SRC $OPT/src

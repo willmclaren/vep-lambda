@@ -95,4 +95,6 @@ RUN ./INSTALL.pl --auto ap --plugins all --pluginsdir $VEP_DIR_PLUGINS --no_upda
 COPY TabixCache.pm $VEP_DIR_PLUGINS/
 COPY chr_synonyms.txt $OPT_SRC/
 COPY handler.pl /var/task/
+COPY FastaSequence.pm ${OPT_SRC}/ensembl-vep/Bio/EnsEMBL/Variation/Utils/FastaSequence.pm
+ENV HOME /root
 CMD [ "handler.handle" ]

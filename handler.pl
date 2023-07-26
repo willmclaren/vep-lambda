@@ -1,3 +1,4 @@
+use strict;
 use experimental 'smartmatch';
 use warnings;
 
@@ -5,6 +6,7 @@ use Bio::EnsEMBL::VEP::Runner;
 use File::Path qw(make_path);
 use File::Copy qw(copy);
 use File::Basename qw(basename);
+use Data::Dumper;
 
 my @PERMITTED_PARAMS = qw(
     allele_number
@@ -56,17 +58,49 @@ my @PERMITTED_PARAMS = qw(
     summary
 );
 
+our $WRITE_DIR = "/tmp";
+our $VALID_CHROMOSOMES = [1..22, "X", "Y", "MT"];
+
+init();
+
+sub init {
+    check_local_cache_dir();
+    get_config_file_path();
+}
+
 sub handle {
     my ($payload, $context) = @_;
 
-    check_local_cache_dir();
     my $input = extract_and_validate_input($payload);
-    my $config = build_config($payload);
+
+    print STDERR "Building config\n";
+    our $config = build_config($payload);
+
+    print STDERR "Creating runner\n";
     my $runner = Bio::EnsEMBL::VEP::Runner->new($config);
+
+    # bodge valid chromosomes
+    $runner->{valid_chromosomes} = $VALID_CHROMOSOMES;
+
+    # print STDERR "Resetting runner\n";
+    # reset_runner();
+
+    print STDERR "Executing run_rest\n";
     my $return = $runner->run_rest($input);
+
     
     return $return;
 }
+
+# sub reset_runner {
+#     if($runner->{input_buffer}) {
+#         delete $runner->{parser};
+#         delete $runner->{input_buffer};
+#         delete $runner->{output_factory};
+#         $runner->get_InputBuffer();
+#         # map {$_->clean_cache()} @{$runner->get_all_AnnotationSources()};
+#     }
+# }
 
 sub extract_and_validate_input {
     my ($payload) = @_;
@@ -78,7 +112,10 @@ sub build_config {
     my $config = {
         config => get_config_file_path(),
         cache => 1,
-        database => 0,
+        # database => 0,
+        offline => 1,
+        dir => "$WRITE_DIR/.vep",
+        no_check_variants_order => 1,
         species => $ENV{VEP_SPECIES},
         assembly => $ENV{VEP_ASSEMBLY},
         cache_version => $ENV{ENSEMBL_VERSION},
@@ -123,8 +160,7 @@ sub get_local_cache_dir_path {
     my $ensembl_version = $ENV{ENSEMBL_VERSION};
     my $species = $ENV{VEP_SPECIES};
     my $assembly = $ENV{VEP_ASSEMBLY};
-    my $home_dir = $ENV{HOME};
-    return "$home_dir/.vep/$species/$ensembl_version\_$assembly";
+    return "$WRITE_DIR/.vep/$species/$ensembl_version\_$assembly";
 }
 
 sub get_remote_cache_dir_path {
@@ -134,7 +170,8 @@ sub get_remote_cache_dir_path {
 sub download_s3_file {
     my ($s3_path, $local_file) = @_;
     print STDERR "Downloading $s3_path to $local_file\n";
-    system("aws", "s3", "cp", $s3_path, $local_file);
+    system("aws", "s3", "cp", $s3_path, $local_file) == 0 or die $?;
+    print STDERR "\n\nDownloaded $s3_path\n";
 }
 
 sub get_config_file_path {
@@ -152,9 +189,8 @@ sub get_remote_config_file_path {
 
 sub get_local_config_file_path {
     my ($remote_path) = @_;
-    my $home_dir = $ENV{HOME};
     my $basename = basename($remote_path);
-    return "$home_dir/$basename";
+    return "$WRITE_DIR/$basename";
 }
 
 1;

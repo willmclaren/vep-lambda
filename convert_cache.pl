@@ -174,45 +174,60 @@ sub process_species_version_type {
   my @chrs = grep {-d $dir.'/'.$_ && !/^\./} readdir DIR;
   closedir DIR;
 
-  my $bgzip = $config->{bgzip};
-  my $out_file = $dir."/".$TYPE_MAP{$type}.".gz";
-  open my $out_fh, "|-", $bgzip." -c > ".$out_file;
+  my $file_stem = $dir."/".$TYPE_MAP{$type}; 
 
+  my @sorted_files = ();
   for my $chr(@chrs) {
     debug($config, "Processing chromosome $chr");
-    my $obj_arrays = process_chr_dir($config, join('/', ($dir, $chr)), $type);
-    for my $obj_array(@$obj_arrays) {
+    push @sorted_files, process_chr_dir($config, join('/', ($dir, $chr)), $type, $file_stem."_".$chr);
+  }
+
+  debug($config, "Concatenating chromosome files");
+  my $concat_file = $file_stem.".gz";
+  my $joined_sorted_files = join(" ", @sorted_files);
+  my $concat_out = `cat $joined_sorted_files > $concat_file 2>&1`;
+  die("ERROR: Concatenating failed\n$concat_out") if $concat_out;
+
+  map {unlink($_)} @sorted_files;
+
+  debug($config, "Indexing data");
+  tabix_index($config, $concat_file, 1, 2, 3);
+}
+
+sub process_chr_dir {
+  my ($config, $chr_dir, $type, $file_stem) = @_;
+
+  opendir DIR, $chr_dir;
+  my @cache_files = grep {-f $chr_dir.'/'.$_ && /\d+$type\.gz$/} readdir DIR;
+  closedir DIR;
+
+
+  my $bgzip = $config->{bgzip};
+  my $unsorted_file = $file_stem."_unsorted.gz";
+  open my $out_fh, "|-", $bgzip." -c > ".$unsorted_file;
+
+  for my $cache_file(@cache_files) {
+    my $unpacked = unpack_cache_file($config, $chr_dir.'/'.$cache_file);
+
+    for my $obj_array(@{get_obj_arrays_from_unpacked($unpacked, $type)}) {
       print $out_fh join("\t", @$obj_array)."\n";
     }
   }
 
   close $out_fh;
 
-  debug($config, "Indexing data");
-  tabix_index($config, $out_file, 1, 2, 3);
-}
+  my $sorted_file = $file_stem."_sorted.gz";
+  my $sort_out = `bgzip -dc $unsorted_file | sort -k1,1 -k2,2n -k3,3n | bgzip -c > $sorted_file 2>&1`;
+  die("ERROR: Sorting failed\n$sort_out") if $sort_out;
+  unlink($unsorted_file);
 
-sub process_chr_dir {
-  my ($config, $chr_dir, $type) = @_;
-
-  opendir DIR, $chr_dir;
-  my @cache_files = grep {-f $chr_dir.'/'.$_ && /\d+$type\.gz$/} readdir DIR;
-  closedir DIR;
-
-  my @encoded_obj_arrays;
-
-  for my $cache_file(@cache_files) {
-    my $unpacked = unpack_cache_file($config, $chr_dir.'/'.$cache_file);
-
-    push @encoded_obj_arrays, @{get_obj_arrays_from_unpacked($unpacked, $type)};
-  }
-
-  @encoded_obj_arrays = sort {
-    $a->[0] <=> $b->[0] ||
-    $a->[1] <=> $b->[1] ||
-    $a->[2] <=> $b->[2]
-  } @encoded_obj_arrays;
-  return \@encoded_obj_arrays;
+  return $sorted_file;
+  # @encoded_obj_arrays = sort {
+  #   $a->[0] <=> $b->[0] ||
+  #   $a->[1] <=> $b->[1] ||
+  #   $a->[2] <=> $b->[2]
+  # } @encoded_obj_arrays;
+  # return \@encoded_obj_arrays;
 }
 
 sub get_obj_arrays_from_unpacked {

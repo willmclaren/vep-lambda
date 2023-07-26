@@ -38,6 +38,8 @@ sub configure {
     'compress|c=s',      # eg zcat
     'bgzip|b=s',         # path to bgzip
     'tabix|t=s',         # path to tabix
+
+    'chr=s',             # list of chromosomes
   ) or die "ERROR: Failed to parse command-line flags\n";
   
   # print usage message if requested or no args supplied
@@ -170,9 +172,15 @@ sub process_species_version {
 sub process_species_version_type {
   my ($config, $dir, $type) = @_;
 
-  opendir DIR, $dir;
-  my @chrs = grep {-d $dir.'/'.$_ && !/^\./} readdir DIR;
-  closedir DIR;
+  my @chrs;
+  if($config->{chr}) {
+    @chrs = split(",", $config->{chr});
+  }
+  else {
+    opendir DIR, $dir;
+    @chrs = grep {-d $dir.'/'.$_ && !/^\./} readdir DIR;
+    closedir DIR;
+  }
 
   my $file_stem = $dir."/".$TYPE_MAP{$type}; 
 
@@ -184,9 +192,7 @@ sub process_species_version_type {
 
   debug($config, "Concatenating chromosome files");
   my $concat_file = $file_stem.".gz";
-  my $joined_sorted_files = join(" ", @sorted_files);
-  my $concat_out = `cat $joined_sorted_files > $concat_file 2>&1`;
-  die("ERROR: Concatenating failed\n$concat_out") if $concat_out;
+  concat_files(\@sorted_files, $concat_file);
 
   map {unlink($_)} @sorted_files;
 
@@ -315,6 +321,16 @@ sub encode_obj {
   return encode_base64(encode_sereal($obj), "");  
 }
 
+sub concat_files {
+  my ($sorted_files, $concat_file) = @_;
+  unlink($concat_file);
+  for my $sorted_file(@$sorted_files) {
+    my $concat_out = `cat $sorted_file >> $concat_file 2>&1`;
+    die("ERROR: Concatenating failed\n$concat_out") if $concat_out;
+  }
+  return $concat_file;
+}
+
 sub tabix_index {
   my ($config, $file, $s, $b, $e) = @_;
   my $tabix = $config->{tabix};
@@ -342,6 +358,8 @@ perl convert_cache.pl [arguments]
                           Defaults to "gzip -dc", some systems may prefer "zcat"
 --bgzip [cmd]        -b   Path to bgzip binary (default: bgzip)
 --tabix [cmd]        -t   Path to tabix binary (default: tabix)
+
+--chr [chromosomes]       Comma-separated list of chromosomes to process
 };
 }
 

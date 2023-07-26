@@ -9,7 +9,7 @@ sub new {
   my $class = shift;
   my $self = $class->SUPER::new(@_);
 
-  $self->config->{cache_region_size} = 500000;
+  $self->config->{cache_region_size} = 100000;
 
   return $self;
 }
@@ -49,13 +49,14 @@ sub get_features_by_regions_uncached {
     my $start = ($s * $cache_region_size) + 1;
     my $end = ($s + 1) * $cache_region_size;
 
-    my $iter = $tabix_cache_obj->query(
-      sprintf(
-        "%s:%i-%i",
-        $self->_get_source_chr_name($c, $valids),
-        $start, $end
-      )
+    my $query = sprintf(
+      "%s:%i-%i",
+      $self->_get_source_chr_name($c, $valids),
+      $start, $end
     );
+    # print STDERR "Querying $query\n";
+
+    my $iter = $tabix_cache_obj->query($query);
     next unless $iter;
 
     my $decoded = {};

@@ -194,8 +194,6 @@ sub process_species_version_type {
   my $concat_file = $file_stem.".gz";
   concat_files(\@sorted_files, $concat_file);
 
-  map {unlink($_)} @sorted_files;
-
   debug($config, "Indexing data");
   tabix_index($config, $concat_file, 1, 2, 3);
 }
@@ -209,8 +207,8 @@ sub process_chr_dir {
 
 
   my $bgzip = $config->{bgzip};
-  my $unsorted_file = $file_stem."_unsorted.gz";
-  open my $out_fh, "|-", $bgzip." -c > ".$unsorted_file;
+  my $unsorted_file = $file_stem."_unsorted";
+  open my $out_fh, ">", $unsorted_file;
 
   for my $cache_file(@cache_files) {
     my $unpacked = unpack_cache_file($config, $chr_dir.'/'.$cache_file);
@@ -223,7 +221,7 @@ sub process_chr_dir {
   close $out_fh;
 
   my $sorted_file = $file_stem."_sorted.gz";
-  my $sort_out = `bgzip -dc $unsorted_file | sort -k1,1 -k2,2n -k3,3n | bgzip -c > $sorted_file 2>&1`;
+  my $sort_out = `sort -k1,1 -k2,2n -k3,3n $unsorted_file | bgzip -c > $sorted_file 2>&1`;
   die("ERROR: Sorting failed\n$sort_out") if $sort_out;
   unlink($unsorted_file);
 
@@ -323,11 +321,21 @@ sub encode_obj {
 
 sub concat_files {
   my ($sorted_files, $concat_file) = @_;
+
+  my $uncompressed_concat_file = $concat_file."_uncompressed";
   unlink($concat_file);
+  unlink($uncompressed_concat_file);
+
   for my $sorted_file(@$sorted_files) {
-    my $concat_out = `cat $sorted_file >> $concat_file 2>&1`;
+    my $concat_out = `bgzip -dc $sorted_file >> $uncompressed_concat_file 2>&1`;
+    unlink($sorted_file);
     die("ERROR: Concatenating failed\n$concat_out") if $concat_out;
   }
+
+  my $compress_out = `bgzip -c $uncompressed_concat_file > $concat_file 2>&1`;
+  die("ERROR: Compressing failed\n$compress_out\n") if $compress_out;
+  unlink($uncompressed_concat_file);
+
   return $concat_file;
 }
 

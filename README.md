@@ -46,6 +46,18 @@ aws lambda create-function \
     --environment '{"Variables":{"ENSEMBL_VERSION":"107","VEP_SPECIES":"homo_sapiens","VEP_ASSEMBLY":"GRCh38"}}'
 ```
 
+### Update lambda function
+
+Run if you've modified the lambda code:
+
+```
+export LAMBDA_TAG=${AWS_ARN}.dkr.ecr.eu-west-2.amazonaws.com/vep-lambda:latest
+
+docker build -t vep-lambda -t ${LAMBDA_TAG} . \
+&& docker push ${LAMBDA_TAG} \
+&& aws lambda update-function-code --function-name "vep-lambda" --image-uri ${LAMBDA_TAG}
+```
+
 ### Copy data to S3
 
 Create an S3 bucket named `vep-lambda-data` on AWS management console.
